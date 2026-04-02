@@ -48,6 +48,6 @@ Skills are in `skills/` and get loaded automatically when relevant. You can also
 - No `init()` functions — explicit initialization only
 - No global mutable state — pass dependencies via constructors
 - Context as first parameter, propagated through all layers
-- All SQL in `queries/` — sqlc generates Go code
+- Use GORM
 - Migrations in `migrations/` — never alter DB directly
 - Parameterized queries only (`$1`, `$2`) — never string formatting

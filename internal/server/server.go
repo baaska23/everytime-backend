@@ -44,10 +44,3 @@ func NewServer() *http.Server {
 
 	return server
 }
-
-// func (s *Server) Close() error {
-// 	if s.dbManager != nil {
-// 		return s.dbManager.Close()
-// 	}
-// 	return nil
-// }

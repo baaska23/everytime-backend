@@ -10,6 +10,7 @@ import (
 type Repository interface {
 	FindOrCreateUser(userId string) (*User, error)
 	GetUserById(userId string) (*User, error)
+	GetAll() ([]User, error)
 }
 
 type everytimeRepository struct {
@@ -40,11 +41,11 @@ func (r *everytimeRepository) GetUserById(userId string) (*User, error) {
 	return user, nil
 }
 
-func (r *everytimeRepository) GetAll() (*[]User, error){
-	users := &[]User{}
-	result:= r.db.Find(users)
+func (r *everytimeRepository) GetAll() ([]User, error) {
+	var users []User
+	result := r.db.Find(&users)
 	if result.Error != nil {
-		return nil, fmt.Errorf("failed to find all users")
+		return nil, fmt.Errorf("finding all users: %w", result.Error)
 	}
 	return users, nil
 }
