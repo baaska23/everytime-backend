@@ -2,7 +2,7 @@ package server
 
 import (
 	"everytime-backend/internal/shared/database"
-	"everytime-backend/internal/users"
+	"everytime-backend/internal/auth"
 	"fmt"
 	"log"
 	"net/http"
@@ -14,7 +14,7 @@ import (
 type Server struct {
 	port        int
 	dbManager   *database.DBManager
-	userHandler *users.Handler
+	userHandler *auth.Handler
 }
 
 func NewServer() *http.Server {
@@ -24,9 +24,9 @@ func NewServer() *http.Server {
 		log.Fatalf("Failed to init database manager: %v", err)
 	}
 
-	userRepo := users.NewRepository(dbManager.Everytime)
-	userService := users.NewService(userRepo)
-	userHandler := users.NewHandler(userService)
+	userRepo := auth.NewRepository(dbManager.Everytime)
+	userService := auth.NewService(userRepo)
+	userHandler := auth.NewHandler(userService)
 
 	srv := &Server{
 		port:        port,
