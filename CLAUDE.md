@@ -1,6 +1,6 @@
 # Everytime — Backend
 
-University community platform for Thai students. `.edu` email auth only. Text-only content (no user image uploads). All content scoped to the user's university.
+University community platform for Mongolian students. `.edu` email auth only. Text-only content (no user image uploads). All content scoped to the user's university.
 
 ## Features
 - **Board** — anonymous posts by faculty/department, upvote/downvote/report
