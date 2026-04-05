@@ -11,6 +11,8 @@ type User struct {
 	UserID     string `gorm:"uniqueIndex;not null" json:"userId"`
 	Email      string `gorm:"not null" json:"email"`
 	University string `gorm:"not null" json:"university"`
+	Faculty    string `gorm:"not null" json:"faculty"`
+	Department string `json:"department"`
 	Verified   bool   `gorm:"default:false" json:"verified"`
 }
 

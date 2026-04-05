@@ -1,0 +1,9 @@
+  When an admin views the moderation queue, the flow is:                                                                                                                                                               
+  1. Fetch all PostReport rows with status = 'pending'
+  2. Use the PostID to fetch the Post separately — or join in a raw query                                                                                                                                              
+            
+  You're never doing:                                                                                                                                                                                                  
+  db.Preload("Post").Find(&reports) // never needed
+  report.Post.Title                 // never accessed this way                                                                                                                                                         
+                                                                                                                                                                                                                       
+  The association field (Post *Post) only exists to enable that Preload pattern in Go. If you don't need it, don't add it.   
