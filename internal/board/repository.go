@@ -25,8 +25,8 @@ type Repository interface {
 	ListPosts(context.Context) ([]Post, error)
 	GetById(context.Context, string) (*Post, error)
 	DeletePost(context.Context, string) error
-	// UpvotePost()
-	// DownvotePost()
+	UpvotePost(context.Context, string) error
+	DownvotePost(context.Context, string) error
 	// ReportPost()
 	// ListComments()
 	// AddComment()
@@ -57,6 +57,32 @@ func (r *repositoryImpl) DeletePost(ctx context.Context, id string) error {
 
 	if result.Error != nil {
 		return fmt.Errorf("delete post")
+	}
+	return nil
+}
+
+func (r *repositoryImpl) UpvotePost(ctx context.Context, id string) error {
+	result := r.db.WithContext(ctx).Model(&Post{}).
+		Where("post_id = ?", id).
+		UpdateColumn("upvote", gorm.Expr("upvote + 1"))
+	if result.Error != nil {
+		return fmt.Errorf("upvote post %s: %w", id, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("post %s not found", id)
+	}
+	return nil
+}
+
+func (r *repositoryImpl) DownvotePost(ctx context.Context, id string) error {
+	result := r.db.WithContext(ctx).Model(&Post{}).
+		Where("post_id = ?", id).
+		UpdateColumn("downvote", gorm.Expr("downvote + 1"))
+	if result.Error != nil {
+		return fmt.Errorf("downvote post %s: %w", id, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("post %s not found", id)
 	}
 	return nil
 }

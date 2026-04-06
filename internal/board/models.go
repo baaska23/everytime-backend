@@ -14,6 +14,8 @@ type Post struct {
 	Title      string `gorm:"not null" json:"title"`
 	Content    string `gorm:"not null" json:"content"`
 	Category   string `gorm:"not null;index" json:"category"`
+	Upvote     int    `gorm:"default:0" json:"upvote"`
+	Downvote   int    `gorm:"default:0" json:"downvote"`
 }
 
 type Comment struct {
