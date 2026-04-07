@@ -36,14 +36,14 @@ type CommentReply struct {
 	Comment   *Comment `gorm:"foreignKey:CommentID;references:CommentID" json:"-"`
 }
 
-type PostVote struct {
+type PostVoteRequest struct {
 	gorm.Model
 	PostID   string `gorm:"not null;uniqueIndex:idx_post_user_vote" json:"postId"`
 	UserID   string `gorm:"not null;uniqueIndex:idx_post_user_vote" json:"userId"`
 	VoteType string `gorm:"not null;check:vote_type IN ('up', 'down')" json:"voteType"`
 }
 
-type PostReport struct {
+type PostReportRequest struct {
 	gorm.Model
 	PostID string `gorm:"not null;index;constraint:OnDelete:CASCADE" json:"postId"`
 	UserID string `gorm:"not null" json:"userId"`

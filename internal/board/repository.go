@@ -27,8 +27,8 @@ type Repository interface {
 	DeletePost(context.Context, string) error
 	UpvotePost(context.Context, string) error
 	DownvotePost(context.Context, string) error
-	// ReportPost()
-	// ListComments()
+	ReportPost(context.Context, string, PostReportRequest) (*Post, error)
+	ListComments(context.Context, string) ([]Comment, error)
 	// AddComment()
 	// EditComment()
 	// DeleteComment()
@@ -40,6 +40,35 @@ type repositoryImpl struct {
 
 func NewRepository(db *gorm.DB) Repository {
 	return &repositoryImpl{db: db}
+}
+
+func (r *repositoryImpl) ListComments(ctx context.Context, id string) ([]Comment, error) {
+	var comments []Comment
+
+	if err := r.db.WithContext(ctx).Find(&comments, "post_id = ?", id).Error; err != nil {
+		return nil, fmt.Errorf("Cannot list comments")
+	}
+
+	return comments, nil
+}
+
+func (r *repositoryImpl) ReportPost(ctx context.Context, id string, req PostReportRequest) (*Post, error) {
+	post, err := r.GetById(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("report post: %w", err)
+	}
+
+	report := &PostReportRequest{
+		PostID: post.PostID,
+		UserID: req.UserID,
+		Reason: req.Reason,
+	}
+
+	if err := r.db.WithContext(ctx).Create(report).Error; err != nil {
+		return nil, fmt.Errorf("report post %s: %w", id, err)
+	}
+
+	return post, nil
 }
 
 func (r *repositoryImpl) GetById(ctx context.Context, id string) (*Post, error) {
