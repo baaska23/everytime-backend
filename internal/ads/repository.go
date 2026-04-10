@@ -1,7 +1,9 @@
 package ads
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -9,23 +11,33 @@ import (
 //   Ads
 //   - GET /ads/banner — get active banner ad (public)
 
-type Repository interface {
-	GetActiveBanner(id string) (*Ad, error)
+type AdRepository interface {
+	GetActiveBanner(ctx context.Context, id string) (*Ad, error)
+	ListActiveBanners(context.Context) ([]Ad, error)
 }
 
-type repositoryImpl struct {
+type adRepositoryImpl struct {
 	db *gorm.DB
 }
 
-func NewRepository(db *gorm.DB) Repository {
-	return &repositoryImpl{db: db}
+func NewAdRepository(db *gorm.DB) AdRepository {
+	return &adRepositoryImpl{db: db}
 }
 
-func (r *repositoryImpl) GetActiveBanner(id string) (*Ad, error) {
+func (r *adRepositoryImpl) GetActiveBanner(ctx context.Context, id string) (*Ad, error) {
 	ad := &Ad{}
-	err := r.db.Where("adId = ?", id).First(ad).Error
+	err := r.db.WithContext(ctx).First(ad, id).Error
 	if err != nil {
 		return nil, fmt.Errorf("ad not found")
 	}
 	return ad, nil
+}
+
+func (r *adRepositoryImpl) ListActiveBanners(ctx context.Context) ([]Ad, error) {
+	var ads []Ad
+	err := r.db.WithContext(ctx).Where("end_date >= ?", time.Now()).Find(&ads).Error
+	if err != nil {
+		return nil, fmt.Errorf("Cannot list active ads")
+	}
+	return ads, nil
 }

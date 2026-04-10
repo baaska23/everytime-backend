@@ -1,6 +1,7 @@
 package server
 
 import (
+	"everytime-backend/internal/ads"
 	"everytime-backend/internal/auth"
 	"everytime-backend/internal/board"
 	"everytime-backend/internal/shared/database"
@@ -18,6 +19,7 @@ type Server struct {
 	userHandler    *auth.Handler
 	postHandler    *board.PostHandler
 	commentHandler *board.CommentHandler
+	feedHandler    *board.FeedHandler
 }
 
 func NewServer() *http.Server {
@@ -39,12 +41,17 @@ func NewServer() *http.Server {
 	commentService := board.NewCommentService(commentRepo, postRepo)
 	commentHandler := board.NewCommentHandler(commentService)
 
+	adRepo := ads.NewAdRepository(dbManager.Everytime)
+	feedService := board.NewFeedService(postRepo, adRepo)
+	feedHandler := board.NewFeedHandler(feedService)
+
 	srv := &Server{
 		port:           port,
 		dbManager:      dbManager,
 		userHandler:    userHandler,
 		postHandler:    postHandler,
 		commentHandler: commentHandler,
+		feedHandler:    feedHandler,
 	}
 
 	server := &http.Server{

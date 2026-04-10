@@ -91,3 +91,8 @@ type CommentUpdateRequest struct {
 	Content  string `json:"content"`
 	PostID   string `json:"postId"`
 }
+
+type FeedItem struct {
+	Type    string `json:"type"`
+	Payload any    `json:"payload"`
+}

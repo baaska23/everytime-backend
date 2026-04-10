@@ -2,6 +2,7 @@ package board
 
 import (
 	"context"
+	"everytime-backend/internal/ads"
 	"everytime-backend/internal/shared/apierror"
 	"fmt"
 )
@@ -15,6 +16,11 @@ type CommentService struct {
 	postRepo    PostRepository
 }
 
+type FeedService struct {
+	postRepo PostRepository
+	adRepo   ads.AdRepository
+}
+
 func NewPostService(postRepo PostRepository) *PostService {
 	return &PostService{postRepo: postRepo}
 }
@@ -24,6 +30,27 @@ func NewCommentService(commentRepo CommentRepository, postRepo PostRepository) *
 		commentRepo: commentRepo,
 		postRepo:    postRepo,
 	}
+}
+
+func NewFeedService(postRepo PostRepository, adRepo ads.AdRepository) *FeedService {
+	return &FeedService{
+		postRepo: postRepo,
+		adRepo:   adRepo,
+	}
+}
+
+func (s *FeedService) GetFeed(ctx context.Context) ([]FeedItem, error) {
+	posts, err := s.postRepo.ListPosts(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	ads, err := s.adRepo.ListActiveBanners(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return buildFeed(posts, ads), nil
 }
 
 func (s *PostService) GetPost(ctx context.Context, id string) (*Post, error) {
@@ -46,15 +73,15 @@ func (s *PostService) UpdatePost(ctx context.Context, req PostUpdateRequest, pos
 }
 
 func (s *PostService) CreatePost(ctx context.Context, req PostCreateRequest, userID string) (*Post, error) {
-    // Validate required fields
-    if req.Title == "" {
-        return nil, apierror.BadRequest("title is required")
-    }
-    if req.Content == "" {
-        return nil, apierror.BadRequest("content is required")
-    }
+	// Validate required fields
+	if req.Title == "" {
+		return nil, apierror.BadRequest("title is required")
+	}
+	if req.Content == "" {
+		return nil, apierror.BadRequest("content is required")
+	}
 
-    return s.postRepo.CreatePost(ctx, req)
+	return s.postRepo.CreatePost(ctx, req)
 }
 
 func (s *PostService) DeletePost(ctx context.Context, postID string, userID string) error {
@@ -158,7 +185,7 @@ func (s *CommentService) DownvoteComment(ctx context.Context, commentID string, 
 	return s.commentRepo.DownvoteComment(ctx, commentID)
 }
 
-func (s *CommentService) UpvoteComment(ctx context.Context,commentID string, userID string) error {
+func (s *CommentService) UpvoteComment(ctx context.Context, commentID string, userID string) error {
 	comment, err := s.commentRepo.GetById(ctx, commentID)
 
 	if err != nil {
@@ -169,4 +196,22 @@ func (s *CommentService) UpvoteComment(ctx context.Context,commentID string, use
 		return fmt.Errorf("Cannot upvote your own comment")
 	}
 	return s.commentRepo.UpvoteComment(ctx, commentID)
+}
+
+func buildFeed(posts []Post, ads []ads.Ad) []FeedItem {
+	const adInterval = 20
+
+	feed := []FeedItem{}
+	adIndex := 0
+
+	for i, post := range posts {
+		feed = append(feed, FeedItem{Type: "post", Payload: post})
+
+		if (i+1)%adInterval == 0 && adIndex < len(ads) {
+			feed = append(feed, FeedItem{Type: "ad", Payload: ads})
+			adIndex++
+		}
+	}
+
+	return feed
 }

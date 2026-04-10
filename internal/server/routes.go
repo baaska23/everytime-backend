@@ -51,6 +51,11 @@ func (s *Server) RegisterRoutes() http.Handler {
 			commentRoutes.POST("/:id/upvote", s.commentHandler.UpvoteComment)
 			commentRoutes.POST("/:id/downvote", s.commentHandler.DownvoteComment)
 		}
+
+		feedRoutes := boardRoutes.Group("/feed")
+		{
+			feedRoutes.GET("", s.feedHandler.GetFeed)
+		}
 	}
 
 	return r
