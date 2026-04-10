@@ -158,7 +158,7 @@ func (h *CommentHandler) AddComment(c *gin.Context) {
 		return
 	}
 	req.PostID = c.Param("id")
-	req.AuthorID = c.GetString("userID")
+	req.UserID = c.GetString("userID")
 
 	comment, err := h.commentService.AddComment(c.Request.Context(), req)
 	if err != nil {

@@ -7,7 +7,7 @@ import (
 type Post struct {
 	gorm.Model
 	PostID     string `gorm:"uniqueIndex;not null" json:"postId"`
-	AuthorID   string `gorm:"not null;index" json:"-"`
+	UserID     string `gorm:"not null;index" json:"-"`
 	University string `gorm:"not null;index" json:"university"`
 	Faculty    string `gorm:"not null;index" json:"faculty"`
 	Department string `gorm:"index" json:"department"`
@@ -23,7 +23,7 @@ type Comment struct {
 	gorm.Model
 	CommentID string `gorm:"uniqueIndex;not null" json:"commentId"`
 	PostID    string `gorm:"not null;index" json:"postId"`
-	AuthorID  string `gorm:"not null;index" json:"-"`
+	UserID    string `gorm:"not null;index" json:"-"`
 	Content   string `gorm:"not null" json:"content"`
 	Post      *Post  `gorm:"foreignKey:PostID;references:PostID" json:"-"`
 }
@@ -32,7 +32,7 @@ type CommentReply struct {
 	gorm.Model
 	ReplyID   string   `gorm:"uniqueIndex;not null" json:"replyId"`
 	CommentID string   `gorm:"not null;index" json:"commentId"`
-	AuthorID  string   `gorm:"not null;index" json:"-"`
+	UserID    string   `gorm:"not null;index" json:"-"`
 	Content   string   `gorm:"not null" json:"content"`
 	Comment   *Comment `gorm:"foreignKey:CommentID;references:CommentID" json:"-"`
 }
@@ -81,15 +81,15 @@ type PostUpdateRequest struct {
 }
 
 type CommentCreateRequest struct {
-	AuthorID string `json:"userId"`
-	Content  string `json:"content"`
-	PostID   string `json:"postId"`
+	UserID  string `json:"userId"`
+	Content string `json:"content"`
+	PostID  string `json:"postId"`
 }
 
 type CommentUpdateRequest struct {
-	AuthorID string `json:"userId"`
-	Content  string `json:"content"`
-	PostID   string `json:"postId"`
+	UserID  string `json:"userId"`
+	Content string `json:"content"`
+	PostID  string `json:"postId"`
 }
 
 type FeedItem struct {

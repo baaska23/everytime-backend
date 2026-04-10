@@ -66,7 +66,7 @@ func (s *PostService) UpdatePost(ctx context.Context, req PostUpdateRequest, pos
 	if err != nil {
 		return nil, err
 	}
-	if post.AuthorID != userID {
+	if post.UserID != userID {
 		return nil, fmt.Errorf("unauthorized: you don't own this post")
 	}
 	return s.postRepo.UpdatePost(ctx, req, postID)
@@ -91,7 +91,7 @@ func (s *PostService) DeletePost(ctx context.Context, postID string, userID stri
 		return err
 	}
 
-	if post.AuthorID != userID {
+	if post.UserID != userID {
 		return fmt.Errorf("unauthorized: you dont own this post")
 	}
 
@@ -103,7 +103,7 @@ func (s *PostService) ReportPost(ctx context.Context, postID string, req ReportP
 	if err != nil {
 		return nil, err
 	}
-	if post.AuthorID == userID {
+	if post.UserID == userID {
 		return nil, fmt.Errorf("cannot report your own post")
 	}
 	return s.postRepo.ReportPost(ctx, postID, req, userID)
@@ -114,7 +114,7 @@ func (s *PostService) UpvotePost(ctx context.Context, postID string, userID stri
 	if err != nil {
 		return err
 	}
-	if post.AuthorID == userID {
+	if post.UserID == userID {
 		return fmt.Errorf("cannot upvote your own post")
 	}
 	return s.postRepo.UpvotePost(ctx, postID)
@@ -125,7 +125,7 @@ func (s *PostService) DownvotePost(ctx context.Context, postID string, userID st
 	if err != nil {
 		return err
 	}
-	if post.AuthorID == userID {
+	if post.UserID == userID {
 		return fmt.Errorf("cannot downvote your own post")
 	}
 	return s.postRepo.DownvotePost(ctx, postID)
@@ -155,7 +155,7 @@ func (s *CommentService) DeleteComment(ctx context.Context, commentID string, us
 	if err != nil {
 		return err
 	}
-	if comment.AuthorID != userID {
+	if comment.UserID != userID {
 		return fmt.Errorf("unauthorized: you don't own this comment")
 	}
 	return s.commentRepo.DeleteComment(ctx, commentID)
@@ -166,7 +166,7 @@ func (s *CommentService) UpdateComment(ctx context.Context, req CommentUpdateReq
 	if err != nil {
 		return nil, err
 	}
-	if comment.AuthorID != userID {
+	if comment.UserID != userID {
 		return nil, fmt.Errorf("unauthorized: you don't own this comment")
 	}
 	return s.commentRepo.UpdateComment(ctx, req, commentID)
@@ -179,7 +179,7 @@ func (s *CommentService) DownvoteComment(ctx context.Context, commentID string, 
 		return fmt.Errorf("Cannot find comment")
 	}
 
-	if comment.AuthorID == userID {
+	if comment.UserID == userID {
 		return fmt.Errorf("Cannot downvote your own comment")
 	}
 	return s.commentRepo.DownvoteComment(ctx, commentID)
@@ -192,7 +192,7 @@ func (s *CommentService) UpvoteComment(ctx context.Context, commentID string, us
 		return fmt.Errorf("Cannot find comment")
 	}
 
-	if comment.AuthorID == userID {
+	if comment.UserID == userID {
 		return fmt.Errorf("Cannot upvote your own comment")
 	}
 	return s.commentRepo.UpvoteComment(ctx, commentID)

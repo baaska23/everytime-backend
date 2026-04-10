@@ -105,9 +105,9 @@ func (r *postRepositoryImpl) UpdatePost(ctx context.Context, req PostUpdateReque
 
 func (r *commentRepositoryImpl) AddComment(ctx context.Context, req CommentCreateRequest) (*Comment, error) {
 	comment := &Comment{
-		AuthorID: req.AuthorID,
-		Content:  req.Content,
-		PostID:   req.PostID,
+		UserID:  req.UserID,
+		Content: req.Content,
+		PostID:  req.PostID,
 	}
 
 	if err := r.db.WithContext(ctx).Create(&comment).Error; err != nil {
