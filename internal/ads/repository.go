@@ -13,7 +13,7 @@ import (
 
 type AdRepository interface {
 	GetActiveBanner(ctx context.Context, id string) (*Ad, error)
-	ListActiveBanners(context.Context) ([]Ad, error)
+	ListActiveBanners(ctx context.Context) ([]Ad, error)
 }
 
 type adRepositoryImpl struct {
