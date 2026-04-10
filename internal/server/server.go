@@ -1,8 +1,9 @@
 package server
 
 import (
-	"everytime-backend/internal/shared/database"
 	"everytime-backend/internal/auth"
+	"everytime-backend/internal/board"
+	"everytime-backend/internal/shared/database"
 	"fmt"
 	"log"
 	"net/http"
@@ -12,9 +13,11 @@ import (
 )
 
 type Server struct {
-	port        int
-	dbManager   *database.DBManager
-	userHandler *auth.Handler
+	port           int
+	dbManager      *database.DBManager
+	userHandler    *auth.Handler
+	postHandler    *board.PostHandler
+	commentHandler *board.CommentHandler
 }
 
 func NewServer() *http.Server {
@@ -28,10 +31,20 @@ func NewServer() *http.Server {
 	userService := auth.NewService(userRepo)
 	userHandler := auth.NewHandler(userService)
 
+	postRepo := board.NewPostRepository(dbManager.Everytime)
+	postService := board.NewPostService(postRepo)
+	postHandler := board.NewPostHandler(postService)
+
+	commentRepo := board.NewCommentRepository(dbManager.Everytime)
+	commentService := board.NewCommentService(commentRepo, postRepo)
+	commentHandler := board.NewCommentHandler(commentService)
+
 	srv := &Server{
-		port:        port,
-		dbManager:   dbManager,
-		userHandler: userHandler,
+		port:           port,
+		dbManager:      dbManager,
+		userHandler:    userHandler,
+		postHandler:    postHandler,
+		commentHandler: commentHandler,
 	}
 
 	server := &http.Server{
