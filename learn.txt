@@ -7,3 +7,42 @@
   report.Post.Title                 // never accessed this way                                                                                                                                                         
                                                                                                                                                                                                                        
   The association field (Post *Post) only exists to enable that Preload pattern in Go. If you don't need it, don't add it.   
+
+    Option B — FeedSource interface (recommended)
+
+  Define a small interface that each feature implements:
+
+  // in internal/board/ or internal/shared/
+  type FeedSource interface {
+      FeedItems(ctx context.Context) ([]FeedItem, error)
+  }
+
+  Then each module (board, marketplace, lostfound) implements FeedSource on its own repo/service. FeedService just iterates over a []FeedSource, merges results, interleaves ads, sorts by time, and returns.
+
+  type FeedService struct {
+      sources []FeedSource
+      adRepo  ads.AdRepository
+  }
+
+  Why this is better:
+  - Adding a new feed source = implement the interface, register it in server.go. Zero changes to FeedService.
+  - Each module owns its own query logic and filtering.
+  - No circular imports — the interface lives in shared or in board since that's where FeedItem already lives.
+
+  Where to put the shared types
+
+  Move FeedItem and FeedSource to internal/shared/feed/ (just the types, not the service). That way board, marketplace, and lostfound can all import the shared type without importing each other. The FeedService stays wherever makes sense — board or server.
+
+  Summary
+
+  ┌─────────────────────────┬────────────────────┬─────────────────────────────────────────┐
+  │        Approach         │        Pros        │                  Cons                   │
+  ├─────────────────────────┼────────────────────┼─────────────────────────────────────────┤
+  │ Separate internal/feed/ │ Clear separation   │ Dependency magnet, no real domain logic │
+  ├─────────────────────────┼────────────────────┼─────────────────────────────────────────┤
+  │ Widen FeedService deps  │ Simple, works now  │ Grows linearly with each new source     │
+  ├─────────────────────────┼────────────────────┼─────────────────────────────────────────┤
+  │ FeedSource interface    │ Open/closed, clean │ Slightly more abstraction upfront       │
+  └─────────────────────────┴────────────────────┴─────────────────────────────────────────┘
+
+  I'd go with Option B + moving FeedItem/FeedSource to internal/shared/feed/. Want me to implement it?
