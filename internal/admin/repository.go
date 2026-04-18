@@ -2,167 +2,161 @@ package admin
 
 import (
 	"context"
+	"everytime-backend/internal/shared/types"
+	"fmt"
 
 	"gorm.io/gorm"
 )
 
-//   Admin
-//   - GET /admin/reports — list reported content
-//   - PUT /admin/reports/:id — resolve report (approve/dismiss)
-//   - GET /admin/users — list users
-//   - PUT /admin/users/:id/ban — ban user
-//   - DELETE /admin/users/:id/ban — unban user
-//   - GET /admin/ads — list ad slots
-//   - POST /admin/ads — create ad
-//   - PUT /admin/ads/:id — update ad
-//   - DELETE /admin/ads/:id — delete ad
-
 type ReportRepository interface {
-    CreateReport(ctx context.Context, req CreateReportInput) (*Report, error)
-    GetReportByID(ctx context.Context, reportID string) (*Report, error)
-    ListReports(ctx context.Context, filter ReportFilter) (PagedResult[Report], error)
-    ResolveReport(ctx context.Context, reportID string, req ResolveReportInput) (*Report, error)
-    DeleteReport(ctx context.Context, reportID string) error
+	Create(ctx context.Context, req CreateReportRequest) (*Report, error)
+	GetByID(ctx context.Context, id uint) (*Report, error)
+	List(ctx context.Context, filter ReportFilter) (types.PagedResult[Report], error)
+	Resolve(ctx context.Context, id uint, req ResolveReportRequest) (*Report, error)
+	Delete(ctx context.Context, id uint) error
 }
 
 type UserRepository interface {
-    ListUsers(ctx context.Context, filter UserFilter) (PagedResult[User], error)
-    GetUserByID(ctx context.Context, userID string) (*User, error)
-    BanUser(ctx context.Context, userID string, req BanUserInput) (*User, error)
-    UnbanUser(ctx context.Context, userID string, req UnbanUserInput) (*User, error)
+	List(ctx context.Context, filter UserFilter) (types.PagedResult[User], error)
+	GetByID(ctx context.Context, userID string) (*User, error)
+	BanUser(ctx context.Context, userID string, req BanUserInput) (*User, error)
+	UnbanUser(ctx context.Context, userID string, req UnbanUserInput) (*User, error)
 }
 
 type AdRepository interface {
-    ListAds(ctx context.Context, filter AdFilter) (PagedResult[Ad], error)
-    GetAdByID(ctx context.Context, adID string) (*Ad, error)
-    CreateAd(ctx context.Context, req CreateAdInput) (*Ad, error)
-    UpdateAd(ctx context.Context, adID string, req UpdateAdInput) (*Ad, error)
-    SetAdActive(ctx context.Context, adID string, req SetAdActiveInput) (*Ad, error)
-    DeleteAd(ctx context.Context, adID string, req DeleteAdInput) error
+	ListAds(ctx context.Context, filter AdFilter) (PagedResult[Ad], error)
+	GetAdByID(ctx context.Context, adID string) (*Ad, error)
+	CreateAd(ctx context.Context, req CreateAdInput) (*Ad, error)
+	UpdateAd(ctx context.Context, adID string, req UpdateAdInput) (*Ad, error)
+	SetAdActive(ctx context.Context, adID string, req SetAdActiveInput) (*Ad, error)
+	DeleteAd(ctx context.Context, adID string, req DeleteAdInput) error
 }
 
-type Pagination struct {
-	Page  int
-	Limit int
-}
-
-type SortOption struct {
-	Field string
-	Desc  bool
-}
-
-type Scope struct {
-	University string
-}
-
-type ActionMeta struct {
-	ActedBy string
-	Reason  string
-	Note    string
-}
-
-type PagedResult[T any] struct {
-	Items []T
-	Total int64
-	Page  int
-	Limit int
-}
-
-type ReportFilter struct {
-	Pagination
-	Scope
-	Status   string
-	PostID   string
-	UserID   string
-	FromDate string
-	ToDate   string
-	Sort     SortOption
-}
-
-type UserFilter struct {
-	Pagination
-	Scope
-	Search     string
-	IsBanned   *bool
-	Department string
-	Faculty    string
-	Sort       SortOption
-}
-
-type AdFilter struct {
-	Pagination
-	Scope
-	IsActive *bool
-	Slot     string
-	Sort     SortOption
-}
-
-type CreateReportInput struct {
-	PostID string
-	UserID string
-	Reason string
-	Scope  Scope
-}
-
-type ResolveReportInput struct {
-	Status string
-	ActionMeta
-}
-
-type BulkResolveReportsInput struct {
-	ReportIDs []string
-	Status    string
-	ActionMeta
-}
-
-type BanUserInput struct {
-	Until string
-	ActionMeta
-}
-
-type UnbanUserInput struct {
-	ActionMeta
-}
-
-type CreateAdInput struct {
-	BannerURL string
-	StartDate string
-	EndDate   string
-	Priority  int
-	Slot      string
-	Scope     Scope
-	ActionMeta
-}
-
-type UpdateAdInput struct {
-	BannerURL *string
-	StartDate *string
-	EndDate   *string
-	Priority  *int
-	Slot      *string
-	ActionMeta
-}
-
-type SetAdActiveInput struct {
-	IsActive bool
-	ActionMeta
-}
-
-type DeleteAdInput struct {
-	HardDelete bool
-	ActionMeta
-}
-
-type BulkSetAdActiveInput struct {
-	AdIDs    []string
-	IsActive bool
-	ActionMeta
-}
-
-type adminRepositoryImpl struct {
+type reportRepositoryImpl struct {
 	db *gorm.DB
 }
 
-func NewAdminRepository(db *gorm.DB) AdminRepository {
-	return &adminRepositoryImpl{db: db}
+type userRepositoryImpl struct {
+	db *gorm.DB
+}
+
+type adRepositoryImpl struct {
+	db *gorm.DB
+}
+
+func NewReportRepository(db *gorm.DB) ReportRepository {
+	return &reportRepositoryImpl{db: db}
+}
+
+func NewUserRepository(db *gorm.DB) UserRepository {
+	return &userRepositoryImpl{db: db}
+}
+
+func NewAdRepository(db *gorm.DB) AdRepository {
+	return &adRepositoryImpl{db: db}
+}
+
+func (r *reportRepositoryImpl) List(ctx context.Context, filter ReportFilter) (types.PagedResult[Report], error) {
+	var items []Report
+
+	query := r.db.WithContext(ctx).Model(&Report{})
+
+	if filter.Status != "" {
+		query = query.Where("status = ?", filter.Status)
+	}
+
+	if filter.UserID != "" {
+		query = query.Where("user_id = ?", filter.UserID)
+	}
+
+	if filter.PostID != "" {
+		query = query.Where("post_id = ?", filter.PostID)
+	}
+
+	//Scope filters
+	if filter.University != "" {
+		query = query.Where("university = ?", filter.University)
+	}
+	if filter.Level != "" {
+		query = query.Where("level = ?", filter.Level)
+	}
+
+	if filter.Sort.Field != "" {
+		order := filter.Sort.Field
+		if filter.Sort.Desc {
+			order += "DESC"
+		}
+
+		query = query.Order(order)
+	}
+
+	var total int64
+	query.Count(&total)
+
+	if filter.Limit > 0 {
+		offset := (filter.Page - 1) * filter.Limit
+		query = query.Limit(filter.Limit).Offset(offset)
+	}
+
+	if err := query.Find(&items).Error; err != nil {
+		return types.PagedResult[Report]{}, fmt.Errorf("list reports: %w", err)
+	}
+
+	return types.PagedResult[Report]{
+		Items: items,
+		Total: uint64(total),
+		Page:  filter.Page,
+		Limit: filter.Limit,
+	}, nil
+}
+
+func (r *reportRepositoryImpl) GetByID(ctx context.Context, id uint) (*Report, error) {
+	var report Report
+
+	if err := r.db.WithContext(ctx).First(&report, id).Error; err != nil {
+		return nil, fmt.Errorf("get report: %w", err)
+	}
+
+	return &report, nil
+}
+
+func (r *reportRepositoryImpl) Delete(ctx context.Context, id uint) error {
+	if err := r.db.WithContext(ctx).Delete(&Report{}, id).Error; err != nil {
+		return fmt.Errorf("delete report: %w", err)
+	}
+
+	return nil
+}
+
+func (r *reportRepositoryImpl) Resolve(ctx context.Context, id uint, req ResolveReportRequest) (*Report, error) {
+	report, err := r.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("get report: %w", err)
+	}
+
+	report.Status = req.Status
+	report.Reason = req.ActionMeta.Reason
+	report.Note = req.ActionMeta.Note
+	report.AdminID = req.ActionMeta.ActedBy
+
+	if err := r.db.WithContext(ctx).Model(report).Updates(report).Error; err != nil {
+		return nil, fmt.Errorf("resolve report: %w", err)
+	}
+
+	return report, nil
+}
+
+func (r *reportRepositoryImpl) Create(ctx context.Context, req CreateReportRequest) (*Report, error) {
+	report := &Report{
+		Status: "pending",
+		UserID: req.UserID,
+		PostID: req.PostID,
+		Reason: req.Reason,
+	}
+
+	if err := r.db.WithContext(ctx).Create(report).Error; err != nil {
+		return nil, fmt.Errorf("create report: %w", err)
+	}
+
+	return report, nil
 }

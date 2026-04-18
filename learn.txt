@@ -1,94 +1,4 @@
-  When an admin views the moderation queue, the flow is:                                                                                                                                                               
-  1. Fetch all PostReport rows with status = 'pending'
-  2. Use the PostID to fetch the Post separately — or join in a raw query                                                                                                                                              
-            
-  You're never doing:                                                                                                                                                                                                  
-  db.Preload("Post").Find(&reports) // never needed
-  report.Post.Title                 // never accessed this way                                                                                                                                                         
-                                                                                                                                                                                                                       
-  The association field (Post *Post) only exists to enable that Preload pattern in Go. If you don't need it, don't add it.   
-
-    Option B — FeedSource interface (recommended)
-
-  Define a small interface that each feature implements:
-
-  // in internal/board/ or internal/shared/
-  type FeedSource interface {
-      FeedItems(ctx context.Context) ([]FeedItem, error)
-  }
-
-  Then each module (board, marketplace, lostfound) implements FeedSource on its own repo/service. FeedService just iterates over a []FeedSource, merges results, interleaves ads, sorts by time, and returns.
-
-  type FeedService struct {
-      sources []FeedSource
-      adRepo  ads.AdRepository
-  }
-
-  Why this is better:
-  - Adding a new feed source = implement the interface, register it in server.go. Zero changes to FeedService.
-  - Each module owns its own query logic and filtering.
-  - No circular imports — the interface lives in shared or in board since that's where FeedItem already lives.
-
-  Where to put the shared types
-
-  Move FeedItem and FeedSource to internal/shared/feed/ (just the types, not the service). That way board, marketplace, and lostfound can all import the shared type without importing each other. The FeedService stays wherever makes sense — board or server.
-
-  Summary
-
-  ┌─────────────────────────┬────────────────────┬─────────────────────────────────────────┐
-  │        Approach         │        Pros        │                  Cons                   │
-  ├─────────────────────────┼────────────────────┼─────────────────────────────────────────┤
-  │ Separate internal/feed/ │ Clear separation   │ Dependency magnet, no real domain logic │
-  ├─────────────────────────┼────────────────────┼─────────────────────────────────────────┤
-  │ Widen FeedService deps  │ Simple, works now  │ Grows linearly with each new source     │
-  ├─────────────────────────┼────────────────────┼─────────────────────────────────────────┤
-  │ FeedSource interface    │ Open/closed, clean │ Slightly more abstraction upfront       │
-  └─────────────────────────┴────────────────────┴─────────────────────────────────────────┘
-
-  I'd go with Option B + moving FeedItem/FeedSource to internal/shared/feed/. Want me to implement it?
-
-
-  Yes, make it shared at the product level, but not inside the low-level shared utilities folder.
-
-Best placement:
-
-Create a new vertical slice like internal/feed for cross-domain aggregation.
-Keep domain logic in each module:
-board source in board
-marketplace source in marketplace
-courses source in courses
-Wire endpoint in routes.go, similar to how board feed is currently wired via service.go.
-Recommended architecture:
-
-Domain source interfaces
-Feed module depends on small read-only interfaces from board/marketplace/courses.
-Example responsibilities: list recent posts, active listings, recent course reviews/ratings.
-Feed service (in internal/feed)
-Fetch from 3 sources
-Normalize into one FeedItem model
-Rank/merge/sort
-Inject banners/ads
-Apply pagination cursor
-Feed handler
-Endpoint like GET /feed
-Optional filters: university, type, page/cursor
-Should it go in internal/shared?
-
-No for business feed orchestration.
-Yes only for generic helpers used by feed (pagination utils, response envelope, time helpers), which can live in shared.
-Why this is future-proof:
-
-You avoid coupling board with marketplace/courses.
-You can evolve ranking independently.
-You can add new feed sources later (lostfound, admin announcements) without touching domain repositories heavily.
-If you want, I can sketch the exact interface contracts for a new internal/feed slice next (only interfaces and DTOs, no implementation).
-
-send POST
-get mac from mobile
-find subId
-login and return no content, bad response, success
-
-#GORM cheat sheet
+ #GORM cheat sheet
 
 .First(&x) select ... order by id limit 1
 .Last(&x) select ... order by id desc limit 1
@@ -110,4 +20,25 @@ login and return no content, bad response, success
 .Group("col")
 
 
-BoringResponse
+Then you need a polymorphic list shape. Each domain's items (Post, Listing, LostFoundItem) and Ad have different fields, so the response array has to be a tagged union 
+  — otherwise the client can't tell a post from an ad.
+
+  Recommended shape:
+  // internal/shared/types/entry.go
+  type ListEntry struct {
+      Kind string `json:"kind"` // "post" | "listing" | "lostfound" | "ad"
+      Data any   `json:"data"`
+  }
+
+  Ad injection belongs in internal/ads as a helper, so each domain handler calls the same logic:
+  // internal/ads/inject.go
+  func (s *Service) Interleave(ctx context.Context, items []types.ListEntry, every int) ([]types.ListEntry, error)
+
+  Each handler flow becomes:
+  1. Repo returns domain items → wrap each as ListEntry{Kind:"post", Data: post}
+  2. adsService.Interleave(entries, 5) inserts ad entries at the right positions
+  3. Return via BoringResponse
+
+  This is not FeedItem / FeedSource / internal/feed — it's just a shared wire envelope + one injection helper. No cross-domain aggregation, no interface plumbing. Each   
+  domain still owns its own list query and pagination. If you later build a unified home feed, then introduce the FeedSource interface on top of this same ListEntry      
+  shape.
