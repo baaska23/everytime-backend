@@ -16,8 +16,6 @@ type User struct {
 	Verified   bool   `gorm:"default:false" json:"verified"`
 }
 
-func (User) TableName() string { return "users" }
-
 type OTPRecord struct {
 	gorm.Model
 	Email     string    `gorm:"not null;index"`
@@ -26,11 +24,17 @@ type OTPRecord struct {
 	Used      bool      `gorm:"default:false"`
 }
 
-func (OTPRecord) TableName() string { return "otp_records" }
+type RefreshToken struct {
+	gorm.Model
+	UserID    uint       `gorm:"not null;index"`
+	TokenHash string     `gorm:"size:64;uniqueIndex;not null"`
+	ExpiresAt time.Time  `gorm:"not null;index"`
+	RevokedAt *time.Time `gorm:"index"`
+}
 
 type RegisterRequest struct {
 	Email   string `json:"email"`
-	OTPCode string `json:"-"` // set by service, not from HTTP body
+	OTPCode string `json:"-"`
 }
 
 type VerifyEmailRequest struct {
@@ -40,4 +44,17 @@ type VerifyEmailRequest struct {
 
 type LoginRequest struct {
 	Email string `json:"email"`
+}
+
+type RefreshRequest struct {
+	RefreshToken string `json:"refreshToken"`
+}
+
+type LogoutRequest struct {
+	RefreshToken string `json:"refreshToken"`
+}
+
+type TokenPair struct {
+	AccessToken  string `json:"accessToken"`
+	RefreshToken string `json:"refreshToken"`
 }

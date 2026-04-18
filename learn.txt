@@ -46,3 +46,39 @@
   └─────────────────────────┴────────────────────┴─────────────────────────────────────────┘
 
   I'd go with Option B + moving FeedItem/FeedSource to internal/shared/feed/. Want me to implement it?
+
+
+  Yes, make it shared at the product level, but not inside the low-level shared utilities folder.
+
+Best placement:
+
+Create a new vertical slice like internal/feed for cross-domain aggregation.
+Keep domain logic in each module:
+board source in board
+marketplace source in marketplace
+courses source in courses
+Wire endpoint in routes.go, similar to how board feed is currently wired via service.go.
+Recommended architecture:
+
+Domain source interfaces
+Feed module depends on small read-only interfaces from board/marketplace/courses.
+Example responsibilities: list recent posts, active listings, recent course reviews/ratings.
+Feed service (in internal/feed)
+Fetch from 3 sources
+Normalize into one FeedItem model
+Rank/merge/sort
+Inject banners/ads
+Apply pagination cursor
+Feed handler
+Endpoint like GET /feed
+Optional filters: university, type, page/cursor
+Should it go in internal/shared?
+
+No for business feed orchestration.
+Yes only for generic helpers used by feed (pagination utils, response envelope, time helpers), which can live in shared.
+Why this is future-proof:
+
+You avoid coupling board with marketplace/courses.
+You can evolve ranking independently.
+You can add new feed sources later (lostfound, admin announcements) without touching domain repositories heavily.
+If you want, I can sketch the exact interface contracts for a new internal/feed slice next (only interfaces and DTOs, no implementation).

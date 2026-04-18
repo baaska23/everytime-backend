@@ -29,6 +29,10 @@ func NewServer() *http.Server {
 		log.Fatalf("Failed to init database manager: %v", err)
 	}
 
+	if err := dbManager.Everytime.AutoMigrate(&auth.User{}, &auth.OTPRecord{}, &auth.RefreshToken{}); err != nil {
+		log.Fatalf("Failed to migrate auth tables: %v", err)
+	}
+
 	userRepo := auth.NewRepository(dbManager.Everytime)
 	userService := auth.NewService(userRepo)
 	userHandler := auth.NewHandler(userService)

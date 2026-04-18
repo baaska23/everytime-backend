@@ -2,9 +2,8 @@ package board
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -19,6 +18,209 @@ import (
 //   - GET /board/posts/:id/comments — list comments
 //   - POST /board/posts/:id/comments — add comment
 //   - DELETE /board/comments/:id — delete own comment
+
+// Future-proof contract types (V2). Keep current interfaces below for backward compatibility.
+type ErrorCode string
+
+const (
+	ErrCodeNotFound    ErrorCode = "not_found"
+	ErrCodeConflict    ErrorCode = "conflict"
+	ErrCodeForbidden   ErrorCode = "forbidden"
+	ErrCodeInvalid     ErrorCode = "invalid_argument"
+	ErrCodeUnauthorized ErrorCode = "unauthorized"
+	ErrCodeInternal    ErrorCode = "internal"
+)
+
+type DomainError struct {
+	Code    ErrorCode
+	Message string
+	Err     error
+}
+
+func (e *DomainError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if e.Message != "" {
+		return e.Message
+	}
+	if e.Err != nil {
+		return e.Err.Error()
+	}
+	return string(e.Code)
+}
+
+func (e *DomainError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
+var (
+	ErrNotFound     = &DomainError{Code: ErrCodeNotFound, Message: "resource not found", Err: errors.New("resource not found")}
+	ErrConflict     = &DomainError{Code: ErrCodeConflict, Message: "resource conflict", Err: errors.New("resource conflict")}
+	ErrForbidden    = &DomainError{Code: ErrCodeForbidden, Message: "operation forbidden", Err: errors.New("operation forbidden")}
+	ErrInvalidInput = &DomainError{Code: ErrCodeInvalid, Message: "invalid input", Err: errors.New("invalid input")}
+)
+
+type Pagination struct {
+	Page  int
+	Limit int
+}
+
+type CursorPagination struct {
+	Cursor string
+	Limit  int
+}
+
+type SortOption struct {
+	Field string
+	Desc  bool
+}
+
+type PagedResult[T any] struct {
+	Items []T
+	Total int64
+	Page  int
+	Limit int
+}
+
+type CursorPageResult[T any] struct {
+	Items      []T
+	NextCursor string
+	HasMore    bool
+}
+
+type BoardScope struct {
+	University string
+	Faculty    string
+	Department string
+}
+
+type PostListFilter struct {
+	Pagination
+	CursorPagination
+	Scope           BoardScope
+	Category        string
+	Search          string
+	IncludeReported bool
+	Sort            SortOption
+}
+
+type CommentListFilter struct {
+	Pagination
+	CursorPagination
+	PostID string
+	Sort   SortOption
+}
+
+type CreatePostInput struct {
+	UserID   string
+	Title    string
+	Content  string
+	Category string
+	Scope    BoardScope
+}
+
+type UpdatePostInput struct {
+	Title    *string
+	Content  *string
+	Category *string
+	Scope    *BoardScope
+}
+
+type CreateCommentInput struct {
+	PostID  string
+	UserID  string
+	Content string
+}
+
+type UpdateCommentInput struct {
+	Content *string
+}
+
+type VoteType string
+
+const (
+	VoteUp   VoteType = "up"
+	VoteDown VoteType = "down"
+)
+
+type PostVoteInput struct {
+	PostID   string
+	UserID   string
+	VoteType VoteType
+}
+
+type CommentVoteInput struct {
+	CommentID string
+	UserID    string
+	VoteType  VoteType
+}
+
+type CreatePostReportInput struct {
+	PostID  string
+	UserID  string
+	Reason  string
+	Details string
+}
+
+type TxRunner interface {
+	WithTx(ctx context.Context, fn func(ctx context.Context) error) error
+}
+
+type PostReadRepositoryV2 interface {
+	GetByID(ctx context.Context, postID string) (*Post, error)
+	List(ctx context.Context, filter PostListFilter) (PagedResult[Post], error)
+	ListByCursor(ctx context.Context, filter PostListFilter) (CursorPageResult[Post], error)
+}
+
+type PostWriteRepositoryV2 interface {
+	Create(ctx context.Context, req CreatePostInput) (*Post, error)
+	Update(ctx context.Context, postID string, req UpdatePostInput) (*Post, error)
+	Delete(ctx context.Context, postID string) error
+}
+
+type PostVoteRepositoryV2 interface {
+	Vote(ctx context.Context, req PostVoteInput) error
+}
+
+type PostReportRepositoryV2 interface {
+	Report(ctx context.Context, req CreatePostReportInput) (*PostReport, error)
+}
+
+type CommentReadRepositoryV2 interface {
+	GetByID(ctx context.Context, commentID string) (*Comment, error)
+	List(ctx context.Context, filter CommentListFilter) (PagedResult[Comment], error)
+	ListByCursor(ctx context.Context, filter CommentListFilter) (CursorPageResult[Comment], error)
+}
+
+type CommentWriteRepositoryV2 interface {
+	Create(ctx context.Context, req CreateCommentInput) (*Comment, error)
+	Update(ctx context.Context, commentID string, req UpdateCommentInput) (*Comment, error)
+	Delete(ctx context.Context, commentID string) error
+	DeleteByPostID(ctx context.Context, postID string) error
+}
+
+type CommentVoteRepositoryV2 interface {
+	Vote(ctx context.Context, req CommentVoteInput) error
+}
+
+type PostRepositoryV2 interface {
+	TxRunner
+	PostReadRepositoryV2
+	PostWriteRepositoryV2
+	PostVoteRepositoryV2
+	PostReportRepositoryV2
+}
+
+type CommentRepositoryV2 interface {
+	TxRunner
+	CommentReadRepositoryV2
+	CommentWriteRepositoryV2
+	CommentVoteRepositoryV2
+}
 
 type PostRepository interface {
 	CreatePost(context.Context, PostCreateRequest) (*Post, error)
@@ -55,202 +257,4 @@ func NewPostRepository(db *gorm.DB) PostRepository {
 
 func NewCommentRepository(db *gorm.DB) CommentRepository {
 	return &commentRepositoryImpl{db: db}
-}
-
-func (r *commentRepositoryImpl) DeleteComment(ctx context.Context, id string) error {
-	result := r.db.WithContext(ctx).Where("comment_id = ?", id).Delete(&Comment{})
-
-	if result.Error != nil {
-		return fmt.Errorf("delete comment")
-	}
-	return nil
-}
-
-func (r *commentRepositoryImpl) UpdateComment(ctx context.Context, req CommentUpdateRequest, id string) (*Comment, error) {
-	comment, err := r.GetById(ctx, id)
-
-	if err != nil {
-		return nil, fmt.Errorf("Cannot find post")
-	}
-
-	comment.Content = req.Content
-
-	if err := r.db.WithContext(ctx).Where("comment_id =?", id).Updates(comment).Error; err != nil {
-		return nil, fmt.Errorf("Cannot update comment")
-	}
-
-	return comment, nil
-}
-
-func (r *postRepositoryImpl) UpdatePost(ctx context.Context, req PostUpdateRequest, id string) (*Post, error) {
-	post, err := r.GetById(ctx, id)
-
-	if err != nil {
-		return nil, fmt.Errorf("Cannot find post")
-	}
-
-	post.Title = req.Title
-	post.Content = req.Content
-	post.Category = req.Category
-	post.University = req.University
-	post.Department = req.Department
-	post.Faculty = req.Faculty
-
-	if err := r.db.WithContext(ctx).Where("post_id = ?", id).Updates(post).Error; err != nil {
-		return nil, fmt.Errorf("Cannot update post")
-	}
-
-	return post, nil
-}
-
-func (r *commentRepositoryImpl) AddComment(ctx context.Context, req CommentCreateRequest) (*Comment, error) {
-	comment := &Comment{
-		UserID:  req.UserID,
-		Content: req.Content,
-		PostID:  req.PostID,
-	}
-
-	if err := r.db.WithContext(ctx).Create(&comment).Error; err != nil {
-		return nil, fmt.Errorf("Cannot create comment")
-	}
-
-	return comment, nil
-}
-
-func (r *commentRepositoryImpl) ListComments(ctx context.Context, id string) ([]Comment, error) {
-	var comments []Comment
-
-	if err := r.db.WithContext(ctx).Find(&comments, "post_id = ?", id).Error; err != nil {
-		return nil, fmt.Errorf("Cannot list comments")
-	}
-
-	return comments, nil
-}
-
-func (r *postRepositoryImpl) ReportPost(ctx context.Context, id string, req ReportPostRequest, userID string) (*Post, error) {
-	post, err := r.GetById(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("report post: %w", err)
-	}
-
-	report := &PostReport{
-		PostID: post.PostID,
-		UserID: userID,
-		Reason: req.Reason,
-	}
-
-	if err := r.db.WithContext(ctx).Create(report).Error; err != nil {
-		return nil, fmt.Errorf("report post %s: %w", id, err)
-	}
-
-	return post, nil
-}
-
-func (r *postRepositoryImpl) GetById(ctx context.Context, id string) (*Post, error) {
-	var post Post
-
-	if err := r.db.WithContext(ctx).First(&post, "post_id = ?", id).Error; err != nil {
-		return nil, fmt.Errorf("Cannot find post with id")
-	}
-
-	return &post, nil
-}
-
-func (r *commentRepositoryImpl) GetById(ctx context.Context, id string) (*Comment, error) {
-	var comment Comment
-
-	if err := r.db.WithContext(ctx).First(&comment, "comment_id =?", id).Error; err != nil {
-		return nil, fmt.Errorf("Cannot find comment with id")
-	}
-
-	return &comment, nil
-}
-
-func (r *postRepositoryImpl) DeletePost(ctx context.Context, id string) error {
-	result := r.db.WithContext(ctx).Where("post_id = ?", id).Delete(&Post{})
-
-	if result.Error != nil {
-		return fmt.Errorf("delete post")
-	}
-	return nil
-}
-
-func (r *postRepositoryImpl) UpvotePost(ctx context.Context, id string) error {
-	result := r.db.WithContext(ctx).Model(&Post{}).
-		Where("post_id = ?", id).
-		UpdateColumn("upvote", gorm.Expr("upvote + 1"))
-	if result.Error != nil {
-		return fmt.Errorf("upvote post %s: %w", id, result.Error)
-	}
-	if result.RowsAffected == 0 {
-		return fmt.Errorf("post %s not found", id)
-	}
-	return nil
-}
-
-func (r *postRepositoryImpl) DownvotePost(ctx context.Context, id string) error {
-	result := r.db.WithContext(ctx).Model(&Post{}).
-		Where("post_id = ?", id).
-		UpdateColumn("downvote", gorm.Expr("downvote + 1"))
-	if result.Error != nil {
-		return fmt.Errorf("downvote post %s: %w", id, result.Error)
-	}
-	if result.RowsAffected == 0 {
-		return fmt.Errorf("post %s not found", id)
-	}
-	return nil
-}
-
-func (r *commentRepositoryImpl) UpvoteComment(ctx context.Context, id string) error {
-	result := r.db.WithContext(ctx).Model(&Comment{}).
-		Where("comment_id = ?", id).
-		UpdateColumn("upvote", gorm.Expr("upvote + 1"))
-	if result.Error != nil {
-		return fmt.Errorf("upvote comment %s: %w", id, result.Error)
-	}
-	if result.RowsAffected == 0 {
-		return fmt.Errorf("comment %s not found", id)
-	}
-	return nil
-}
-
-func (r *commentRepositoryImpl) DownvoteComment(ctx context.Context, id string) error {
-	result := r.db.WithContext(ctx).Model(&Comment{}).
-		Where("comment_id = ?", id).
-		UpdateColumn("downvote", gorm.Expr("downvote + 1"))
-	if result.Error != nil {
-		return fmt.Errorf("downvote comment %s: %w", id, result.Error)
-	}
-	if result.RowsAffected == 0 {
-		return fmt.Errorf("comment %s not found", id)
-	}
-	return nil
-}
-
-func (r *postRepositoryImpl) CreatePost(ctx context.Context, req PostCreateRequest) (*Post, error) {
-	post := &Post{
-		PostID:     uuid.NewString(),
-		Title:      req.Title,
-		Content:    req.Content,
-		Category:   req.Category,
-		University: req.University,
-		Department: req.Department,
-		Faculty:    req.Faculty,
-	}
-
-	if err := r.db.WithContext(ctx).Create(post).Error; err != nil {
-		return nil, fmt.Errorf("Cannot create post")
-	}
-
-	return post, nil
-}
-
-func (r *postRepositoryImpl) ListPosts(ctx context.Context) ([]Post, error) {
-	var posts []Post
-
-	if err := r.db.WithContext(ctx).Find(&posts).Error; err != nil {
-		return nil, fmt.Errorf("Cannot list posts")
-	}
-
-	return posts, nil
 }

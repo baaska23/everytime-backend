@@ -19,6 +19,14 @@ func (s *Server) RegisterRoutes() http.Handler {
 	}))
 
 	apiGroup := r.Group("/api/v1")
+	authRoutes := apiGroup.Group("/auth")
+	{
+		authRoutes.POST("/register", s.userHandler.Register)
+		authRoutes.POST("/verify-email", s.userHandler.VerifyEmail)
+		authRoutes.POST("/login", s.userHandler.Login)
+		authRoutes.POST("/refresh", s.userHandler.Refresh)
+		authRoutes.POST("/logout", s.userHandler.Logout)
+	}
 
 	userRoutes := apiGroup.Group("/users")
 	userRoutes.Use(middleware.BasicAuthMiddleware())
