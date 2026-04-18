@@ -82,3 +82,32 @@ You avoid coupling board with marketplace/courses.
 You can evolve ranking independently.
 You can add new feed sources later (lostfound, admin announcements) without touching domain repositories heavily.
 If you want, I can sketch the exact interface contracts for a new internal/feed slice next (only interfaces and DTOs, no implementation).
+
+send POST
+get mac from mobile
+find subId
+login and return no content, bad response, success
+
+#GORM cheat sheet
+
+.First(&x) select ... order by id limit 1
+.Last(&x) select ... order by id desc limit 1
+.Take(&x) select ... limit 1
+.Find(&x) select ...
+.Count(&n) select count(*)
+
+.Create(&x) insert into 
+.Save(&x) update ... set (all columns)
+.Updates(map) update ... set(non-zero columns)
+.Update('col', val) update ... set col=val (single column)
+.Delete(&x) update ... set deleted_at=now (soft delete)
+
+.Where("id = ?", 5)
+.Not("col = ?", v)
+.Or("col = ?", v)
+.Order("col desc")
+.Limit(n)
+.Group("col")
+
+
+BoringResponse
